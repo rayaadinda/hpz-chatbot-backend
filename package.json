@@ -1,0 +1,34 @@
+{
+  "name": "hpz-chatbot-backend",
+  "version": "1.0.0",
+  "description": "HPZ Crew Chatbot Backend with OpenRouter API",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "build": "echo 'Build complete'",
+    "test": "echo 'Tests not implemented yet'"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.75.1",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2",
+    "openai": "^6.5.0",
+    "rate-limiter-flexible": "^4.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "chatbot",
+    "hpz",
+    "openrouter",
+    "express"
+  ],
+  "author": "HPZ Crew",
+  "license": "MIT"
+}
