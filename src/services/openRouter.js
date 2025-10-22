@@ -136,12 +136,24 @@ Selalu berikan jawaban yang membantu, informatif, dan sesuai dengan nilai-nilai 
 
 			const response = await this.chatCompletion(messages)
 
+			// Normalize response shape and add logging
+			const rawContent =
+				response?.choices?.[0]?.message?.content ||
+				response?.choices?.[0]?.text ||
+				null
+
+			const content =
+				typeof rawContent === "string" && rawContent.trim().length > 0
+					? rawContent
+					: "Maaf, aku tidak bisa memproses pesan itu."
+
+			console.log("ℹ OpenRouter response model:", response?.model || null)
+			console.log("ℹ OpenRouter response preview:", content.slice(0, 300))
+
 			return {
-				content:
-					response.choices[0]?.message?.content ||
-					"Maaf, aku tidak bisa memproses pesan itu.",
-				usage: response.usage,
-				model: response.model,
+				content,
+				usage: response?.usage || null,
+				model: response?.model || null,
 			}
 		} catch (error) {
 			console.error("Simple chat error:", error)
@@ -152,7 +164,7 @@ Selalu berikan jawaban yang membantu, informatif, dan sesuai dengan nilai-nilai 
 					"Maaf, sedang ada gangguan di sistem AI. Silakan coba lagi beberapa saat ya! 🙏",
 				usage: null,
 				model: null,
-				error: error.message,
+				error: error?.message || String(error),
 			}
 		}
 	}
