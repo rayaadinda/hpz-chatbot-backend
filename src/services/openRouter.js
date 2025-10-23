@@ -75,10 +75,9 @@ Selalu berikan jawaban yang membantu, informatif, dan sesuai dengan nilai-nilai 
 	}
 
 	async chatCompletion(messages, options = {}) {
-		this._ensureInitialized() // Ensure client is initialized before use
+		this._ensureInitialized()
 
 		try {
-			// Add system prompt if not present
 			const hasSystemMessage = messages.some((msg) => msg.role === "system")
 			const messagesWithSystem = hasSystemMessage
 				? messages
