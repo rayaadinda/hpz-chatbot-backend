@@ -241,40 +241,57 @@ class CommandService {
 	async handleFaq(user) {
 		const faqs = [
 			{
-				question: "Bagaimana cara bergabung dengan HPZ Crew?",
+				question: "Bagaimana cara bergabung?",
 				answer:
-					'Isi form "Join HPZ Crew" di halaman utama, lalu tunggu email konfirmasi dari tim HPZ.',
+					"Isi form “Join HPZ Crew” di halaman utama, lalu tunggu email konfirmasi dari tim HPZ. Setelah disetujui, kamu akan mendapat akses ke server Discord dan bisa langsung mulai misi pertamamu.",
 			},
 			{
 				question: "Apakah bergabung gratis?",
 				answer:
-					"Ya, 100% gratis untuk semua rider, kreator, maupun penggemar otomotif.",
+					"Ya, 100% gratis untuk semua rider, kreator, maupun penggemar otomotif. Tidak ada biaya pendaftaran atau keanggotaan.",
 			},
 			{
 				question: "Bagaimana cara klaim reward?",
 				answer:
-					"Reward tercatat otomatis di dashboard kamu. Setelah diverifikasi, hadiah akan dikirimkan.",
+					"Semua reward tercatat otomatis di dashboard kamu. Setelah diverifikasi oleh tim HPZ, hadiah akan dikirimkan ke alamat atau akun yang kamu daftarkan.",
 			},
 			{
-				question: "Siapa yang bisa dihubungi jika ada kendala?",
+				question: "Apakah bisa ikut tanpa punya motor?",
 				answer:
-					"Hubungi tim HPZ melalui email crew@hpztv.com atau Discord channel #support.",
+					"Bisa banget! 🚀 Selama kamu tertarik dengan dunia otomotif dan aktif membuat konten, kamu tetap bisa berpartisipasi penuh dalam HPZ Crew.",
+			},
+			{
+				question: "Bagaimana cara mendapatkan poin dan naik level?",
+				answer:
+					"- Upload konten dengan hashtag resmi #RideWithPride.\n- Ajak teman bergabung melalui link afiliasi.\n- Ikuti challenge mingguan dan event lokal.\nSetiap aktivitas memberi poin; setelah mencapai batas tertentu, sistem otomatis menaikkan level kamu ke Pro Racer atau HPZ Legend.",
+			},
+			{
+				question: "Apa saja keuntungan menjadi anggota HPZ Crew?",
+				answer:
+					"- Mendapat reward & merchandise eksklusif.\n- Akses ke event dan kopdar komunitas.\n- Kesempatan tampil di media HPZ TV.\n- Potensi penghasilan dari program afiliasi.\n- Kesempatan kolaborasi dengan micro influencer otomotif lainnya.",
+			},
+			{
+				question: "Bagaimana cara menggunakan link afiliasi saya?",
+				answer:
+					"Masuk ke dashboard → salin link afiliasi unik kamu → bagikan di media sosial atau grup komunitasmu.\nSetiap pembelian melalui link tersebut otomatis menambah poin dan komisi kamu.",
+			},
+			{
+				question: "Siapa yang bisa saya hubungi jika mengalami kendala?",
+				answer:
+					"- Chatbot perintah /hubungiadmin\n- Email: crew@hpztv.com\n- Channel Discord: #support\n- Instagram DM: @hpztv.official",
 			},
 		]
 
-		let response = `# ❓ FAQ - PERTANYAAN UMUM\n\n`
+		let response = `# ❓ FAQ (Pertanyaan Dasar)\n\n`
 
-		faqs.forEach((faq, index) => {
-			response += `### Q${index + 1}: ${faq.question}\n\n`
-			response += `**A:** ${faq.answer}\n\n`
-		})
-
-		response += `## 📖 Butuh bantuan lebih lanjut?\n\n`
-		response += `- 📧 **Email:** crew@hpztv.com\n`
-		response += `- 💬 **Discord:** discord.gg/hpzcrew\n`
-		response += `- 📱 **Instagram:** @hpztv.official\n\n`
-		response += `---\n\n`
-		response += `🤖 Gunakan perintah **/hubungiadmin** untuk bantuan personal! 🚀`
+		response += `1️\nQ: Bagaimana cara bergabung?\nA: Isi form “Join HPZ Crew” di halaman utama, lalu tunggu email konfirmasi dari tim HPZ. Setelah disetujui, kamu akan mendapat akses ke server Discord dan bisa langsung mulai misi pertamamu.\n\n`
+		response += `2️\nQ: Apakah bergabung gratis?\nA: Ya, 100% gratis untuk semua rider, kreator, maupun penggemar otomotif. Tidak ada biaya pendaftaran atau keanggotaan.\n\n`
+		response += `3️\nQ: Bagaimana cara klaim reward?\nA: Semua reward tercatat otomatis di dashboard kamu. Setelah diverifikasi oleh tim HPZ, hadiah akan dikirimkan ke alamat atau akun yang kamu daftarkan.\n\n`
+		response += `4️\nQ: Apakah bisa ikut tanpa punya motor?\nA: Bisa banget! 🚀 Selama kamu tertarik dengan dunia otomotif dan aktif membuat konten, kamu tetap bisa berpartisipasi penuh dalam HPZ Crew.\n\n`
+		response += `5️\nQ: Bagaimana cara mendapatkan poin dan naik level?\nA:\n- Upload konten dengan hashtag resmi #RideWithPride.\n- Ajak teman bergabung melalui link afiliasi.\n- Ikuti challenge mingguan dan event lokal.\nSetiap aktivitas memberi poin; setelah mencapai batas tertentu, sistem otomatis menaikkan level kamu ke Pro Racer atau HPZ Legend.\n\n`
+		response += `6️\nQ: Apa saja keuntungan menjadi anggota HPZ Crew?\nA:\n- Mendapat reward & merchandise eksklusif.\n- Akses ke event dan kopdar komunitas.\n- Kesempatan tampil di media HPZ TV.\n- Potensi penghasilan dari program afiliasi.\n- Kesempatan kolaborasi dengan micro influencer otomotif lainnya.\n\n`
+		response += `7️\nQ: Bagaimana cara menggunakan link afiliasi saya?\nA:\nMasuk ke dashboard → salin link afiliasi unik kamu → bagikan di media sosial atau grup komunitasmu.\nSetiap pembelian melalui link tersebut otomatis menambah poin dan komisi kamu.\n\n`
+		response += `8️\nQ: Siapa yang bisa saya hubungi jika mengalami kendala?\nA:\n- Chatbot perintah /hubungiadmin\n- Email: crew@hpztv.com\n- Channel Discord: #support\n- Instagram DM: @hpztv.official\n`
 
 		return {
 			type: "faq",
