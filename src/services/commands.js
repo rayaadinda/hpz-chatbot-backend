@@ -11,6 +11,22 @@ const getSupabaseClient = () => {
 	return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 }
 
+// Helper function to get user_account_id from auth user
+const getUserAccountId = async (supabase, authUserId) => {
+	const { data, error } = await supabase
+		.from("user_accounts")
+		.select("id")
+		.eq("auth_user_id", authUserId)
+		.single()
+
+	if (error) {
+		console.error("Error fetching user_account_id:", error)
+		return null
+	}
+
+	return data?.id
+}
+
 class CommandService {
 	constructor() {
 		this.commands = {
@@ -51,8 +67,8 @@ class CommandService {
 	}
 
 	async handleMisi(user) {
-		// Mock mission data - in production, this would come from database
-		const missions = {
+		const supabase = getSupabaseClient()
+		let missions = {
 			weekly: [
 				{
 					id: 1,
@@ -83,6 +99,55 @@ class CommandService {
 					status: "active",
 				},
 			],
+		}
+
+		try {
+			// Fetch active missions from chatbot_missions table
+			const { data: allMissions, error: missionsError } = await supabase
+				.from("chatbot_missions")
+				.select("*")
+				.eq("status", "active")
+				.order("end_date", { ascending: true })
+
+			if (missionsError) throw missionsError
+
+			// Calculate days remaining for each mission
+			const calculateDaysRemaining = (endDate) => {
+				const now = new Date()
+				const end = new Date(endDate)
+				const diffTime = end - now
+				const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+				return diffDays > 0 ? `${diffDays} hari lagi` : "Berakhir hari ini"
+			}
+
+			// Separate missions by type
+			if (allMissions && allMissions.length > 0) {
+				missions = {
+					weekly: allMissions
+						.filter((m) => m.mission_type === "weekly")
+						.map((m) => ({
+							id: m.id,
+							title: m.title,
+							description: m.description,
+							reward: `+${m.reward_points} poin`,
+							deadline: calculateDaysRemaining(m.end_date),
+							status: m.status,
+						})),
+					monthly: allMissions
+						.filter((m) => m.mission_type === "monthly")
+						.map((m) => ({
+							id: m.id,
+							title: m.title,
+							description: m.description,
+							reward: `+${m.reward_points} poin`,
+							deadline: calculateDaysRemaining(m.end_date),
+							status: m.status,
+						})),
+				}
+			}
+		} catch (error) {
+			console.error("Error fetching missions:", error)
+			// missions already initialized with fallback values
 		}
 
 		let response = "# 🎯 MISI AKTIF HPZ CREW\n\n"
@@ -117,28 +182,106 @@ class CommandService {
 	}
 
 	async handlePoinku(user) {
-		// Mock user points data - in production, fetch from database
-		const mockUserData = {
-			points: 1247,
-			tier: "Pro Racer",
-			pointsToNextTier: 253,
-			recentActivities: [
-				{
-					description: "Instagram post with #RideWithPride",
-					points: 50,
-					date: "2024-10-19",
-				},
-				{
-					description: "Friend joined via your link",
-					points: 100,
-					date: "2024-10-18",
-				},
-				{
-					description: "Weekly challenge completion",
-					points: 30,
-					date: "2024-10-17",
-				},
-			],
+		const supabase = getSupabaseClient()
+		let mockUserData = {
+			points: 0,
+			tier: "Rookie Rider",
+			pointsToNextTier: 500,
+			recentActivities: [],
+		}
+
+		try {
+			// Get user_account_id from auth user
+			const userAccountId = await getUserAccountId(supabase, user.id)
+			if (!userAccountId) throw new Error("User account not found")
+
+			// Fetch user points and tier data
+			let { data: userPointsData, error: pointsError } = await supabase
+				.from("user_points")
+				.select(
+					`
+          total_points,
+          submission_points,
+          approval_points,
+          engagement_points,
+          weekly_win_points,
+          tiers (
+            name,
+            min_points,
+            max_points
+          )
+        `
+				)
+				.eq("user_id", userAccountId)
+				.single()
+
+			if (pointsError) {
+				// If user doesn't exist in user_points, initialize them
+				if (pointsError.code === "PGRST116") {
+					const { data: newUserPoints, error: insertError } = await supabase
+						.from("user_points")
+						.insert({ user_id: userAccountId })
+						.select(
+							`
+              total_points,
+              submission_points,
+              approval_points,
+              engagement_points,
+              weekly_win_points,
+              tiers (
+                name,
+                min_points,
+                max_points
+              )
+            `
+						)
+						.single()
+
+					if (insertError) throw insertError
+					userPointsData = newUserPoints
+				} else {
+					throw pointsError
+				}
+			}
+
+			// Fetch recent activities from chatbot_activities
+			const { data: activities, error: activitiesError } = await supabase
+				.from("chatbot_activities")
+				.select("description, points, created_at")
+				.eq("user_account_id", userAccountId)
+				.order("created_at", { ascending: false })
+				.limit(3)
+
+			if (activitiesError) throw activitiesError
+
+			// Calculate points to next tier
+			const currentPoints = userPointsData.total_points || 0
+			const { data: nextTier, error: tierError } = await supabase
+				.from("tiers")
+				.select("name, min_points")
+				.gt("min_points", currentPoints)
+				.order("min_points", { ascending: true })
+				.limit(1)
+				.single()
+
+			let pointsToNextTier = 0
+			if (!tierError && nextTier) {
+				pointsToNextTier = nextTier.min_points - currentPoints
+			}
+
+			mockUserData = {
+				points: currentPoints,
+				tier: userPointsData.tiers?.name || "Rookie Rider",
+				pointsToNextTier: pointsToNextTier,
+				recentActivities: (activities || []).map((activity) => ({
+					description: activity.description,
+					points: activity.points,
+					date: new Date(activity.created_at).toISOString().split("T")[0],
+				})),
+			}
+		} catch (error) {
+			console.error("Error fetching user points data:", error)
+			// mockUserData already initialized with fallback values
 		}
 
 		let response = `# 💰 STATS POIN KAMU\n\n`
@@ -169,38 +312,146 @@ class CommandService {
 	}
 
 	async handleTierku(user) {
-		// Mock tier data
-		const tierData = {
+		const supabase = getSupabaseClient()
+		let tierData = {
 			current: {
+				name: "Rookie Rider",
+				minPoints: 0,
+				maxPoints: 499,
+				color: "🏍️",
+				benefits: [
+					"Access to Discord community",
+					"Basic missions",
+					"Monthly newsletter",
+				],
+			},
+			next: {
 				name: "Pro Racer",
 				minPoints: 500,
-				maxPoints: 1499,
 				color: "🏍️",
 				benefits: [
 					"Bonus points multiplier (1.2x)",
 					"Feature on HPZ social media",
 					"Exclusive merchandise access",
-					"Advanced challenge participation",
-					"Monthly community calls",
 				],
 			},
-			next: {
-				name: "HPZ Legend",
-				minPoints: 1500,
-				color: "🏆",
+			currentPoints: 0,
+			pointsNeeded: 500,
+			progressPercentage: 0,
+		}
+
+		try {
+			// Get user_account_id from auth user
+			const userAccountId = await getUserAccountId(supabase, user.id)
+			if (!userAccountId) throw new Error("User account not found")
+
+			// Fetch user's current tier and points
+			let { data: userPointsData, error: pointsError } = await supabase
+				.from("user_points")
+				.select(
+					`
+          total_points,
+          tiers (
+            name,
+            min_points,
+            max_points,
+            color,
+            benefits
+          )
+        `
+				)
+				.eq("user_id", userAccountId)
+				.single()
+
+			if (pointsError) {
+				// Initialize user if not exists
+				if (pointsError.code === "PGRST116") {
+					const { data: newUserPoints, error: insertError } = await supabase
+						.from("user_points")
+						.insert({ user_id: userAccountId })
+						.select(
+							`
+              total_points,
+              tiers (
+                name,
+                min_points,
+                max_points,
+                color,
+                benefits
+              )
+            `
+						)
+						.single()
+
+					if (insertError) throw insertError
+					userPointsData = newUserPoints
+				} else {
+					throw pointsError
+				}
+			}
+
+			const currentPoints = userPointsData.total_points || 0
+			const currentTier = userPointsData.tiers || {
+				name: "Rookie Rider",
+				min_points: 0,
+				max_points: 499,
+				color: "🏍️",
 				benefits: [
-					"Free HPZ products monthly",
-					"Exclusive event invitations",
-					"Priority support",
-					"Affiliate commission boost (1.5x)",
-					"Personal brand feature",
-					"Legend exclusive merchandise",
-					"Direct line to HPZ team",
+					"Access to Discord community",
+					"Basic missions",
+					"Monthly newsletter",
 				],
-			},
-			currentPoints: 1247,
-			pointsNeeded: 253,
-			progressPercentage: 74.8,
+			}
+
+			// Fetch next tier
+			const { data: nextTierData, error: nextTierError } = await supabase
+				.from("tiers")
+				.select("*")
+				.gt("min_points", currentPoints)
+				.order("min_points", { ascending: true })
+				.limit(1)
+				.single()
+
+			let pointsNeeded = 0
+			let progressPercentage = 0
+
+			if (!nextTierError && nextTierData) {
+				pointsNeeded = nextTierData.min_points - currentPoints
+				const tierRange = nextTierData.min_points - currentTier.min_points
+				const progressInTier = currentPoints - currentTier.min_points
+				progressPercentage = (progressInTier / tierRange) * 100
+			} else {
+				// User is at max tier
+				progressPercentage = 100
+			}
+
+			tierData = {
+				current: {
+					name: currentTier.name,
+					minPoints: currentTier.min_points,
+					maxPoints: currentTier.max_points,
+					color: currentTier.color,
+					benefits: Array.isArray(currentTier.benefits)
+						? currentTier.benefits
+						: [],
+				},
+				next: nextTierData
+					? {
+							name: nextTierData.name,
+							minPoints: nextTierData.min_points,
+							color: nextTierData.color,
+							benefits: Array.isArray(nextTierData.benefits)
+								? nextTierData.benefits
+								: [],
+					  }
+					: null,
+				currentPoints: currentPoints,
+				pointsNeeded: pointsNeeded,
+				progressPercentage: Math.min(progressPercentage, 100),
+			}
+		} catch (error) {
+			console.error("Error fetching tier data:", error)
+			// tierData already initialized with fallback values
 		}
 
 		let response = `# ${tierData.current.color} TIER KAMU: ${tierData.current.name}\n\n`
@@ -215,13 +466,21 @@ class CommandService {
 			response += `${index + 1}. ${benefit}\n`
 		})
 
-		response += `\n## 🚀 Benefit ${tierData.next.name} (Coming Soon)\n\n`
-		tierData.next.benefits.slice(0, 3).forEach((benefit, index) => {
-			response += `${index + 1}. ${benefit}\n`
-		})
-		response += `\n... dan **${
-			tierData.next.benefits.length - 3
-		} benefit lainnya!**\n\n`
+		if (tierData.next) {
+			response += `\n## 🚀 Benefit ${tierData.next.name} (Coming Soon)\n\n`
+			const benefitsToShow = tierData.next.benefits.slice(0, 3)
+			benefitsToShow.forEach((benefit, index) => {
+				response += `${index + 1}. ${benefit}\n`
+			})
+			if (tierData.next.benefits.length > 3) {
+				response += `\n... dan **${
+					tierData.next.benefits.length - 3
+				} benefit lainnya!**\n\n`
+			}
+		} else {
+			response += `\n## 🎉 Kamu Sudah di Tier Tertinggi!\n\n`
+			response += `Selamat! Kamu sudah mencapai tier maksimal HPZ Crew. Terus pertahankan kontribusimu! 🏆\n\n`
+		}
 
 		response += `## 💡 Tips Cepat Naik Tier\n\n`
 		response += `- Fokus pada konten berkualitas tinggi\n`
@@ -301,17 +560,99 @@ class CommandService {
 	}
 
 	async handleUpgrade(user) {
-		const upgradeInfo = {
-			currentTier: "Pro Racer",
-			nextTier: "HPZ Legend",
-			currentPoints: 1247,
-			neededPoints: 1500,
+		const supabase = getSupabaseClient()
+		let upgradeInfo = {
+			currentTier: "Rookie Rider",
+			nextTier: "Pro Racer",
+			currentPoints: 0,
+			neededPoints: 500,
 			requirements: {
-				content: "10 approved contents (current: 7)",
-				sales: "3 successful affiliate sales (current: 1)",
-				membership: "90 days active membership (current: 67 days)",
+				content: "10 approved contents (current: 0)",
+				sales: "3 successful affiliate sales (current: 0)",
+				membership: "90 days active membership (current: 0 days)",
 				mentoring: "Mentor new members (current: 0)",
 			},
+		}
+
+		try {
+			// Get user_account_id from auth user
+			const userAccountId = await getUserAccountId(supabase, user.id)
+			if (!userAccountId) throw new Error("User account not found")
+
+			// Fetch user points and tier
+			const { data: userPointsData, error: pointsError } = await supabase
+				.from("user_points")
+				.select(
+					`
+          total_points,
+          created_at,
+          tiers (name)
+        `
+				)
+				.eq("user_id", userAccountId)
+				.single()
+
+			if (pointsError) throw pointsError
+
+			const currentPoints = userPointsData.total_points || 0
+
+			// Fetch next tier info
+			const { data: nextTier, error: nextTierError } = await supabase
+				.from("tiers")
+				.select("name, min_points")
+				.gt("min_points", currentPoints)
+				.order("min_points", { ascending: true })
+				.limit(1)
+				.single()
+
+			// Count approved content from ugc_content
+			const { count: contentCount, error: contentError } = await supabase
+				.from("ugc_content")
+				.select("*", { count: "exact", head: true })
+				.eq("status", "approved_for_repost")
+
+			// Count affiliate sales
+			const { count: salesCount, error: salesError } = await supabase
+				.from("affiliate_sales")
+				.select("*", { count: "exact", head: true })
+				.eq("user_account_id", userAccountId)
+				.eq("status", "approved")
+
+			// Calculate membership days from user_accounts
+			const { data: userAccount, error: accountError } = await supabase
+				.from("user_accounts")
+				.select("created_at")
+				.eq("id", userAccountId)
+				.single()
+
+			const membershipDays = userAccount
+				? Math.floor(
+						(new Date() - new Date(userAccount.created_at)) /
+							(1000 * 60 * 60 * 24)
+				  )
+				: 0
+
+			// Count referrals via referred_by
+			const { count: referralCount, error: referralError } = await supabase
+				.from("user_accounts")
+				.select("*", { count: "exact", head: true })
+				.eq("referred_by", userAccountId)
+
+			upgradeInfo = {
+				currentTier: userPointsData.tiers?.name || "Rookie Rider",
+				nextTier: nextTier?.name || "Max Tier Reached",
+				currentPoints: currentPoints,
+				neededPoints: nextTier?.min_points || currentPoints,
+				requirements: {
+					content: `10 approved contents (current: ${contentCount || 0})`,
+					sales: `3 successful affiliate sales (current: ${salesCount || 0})`,
+					membership: `90 days active membership (current: ${membershipDays} days)`,
+					mentoring: `Mentor new members (current: ${referralCount || 0})`,
+				},
+			}
+		} catch (error) {
+			console.error("Error fetching upgrade info:", error)
+			// upgradeInfo already initialized with fallback values
 		}
 
 		let response = `# 🚀 UPGRADE TIER INFORMATION\n\n`

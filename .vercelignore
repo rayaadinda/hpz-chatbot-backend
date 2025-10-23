@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.local
+\*.log
+.DS_Store
+.git
+.gitignore
+README.md
+DEPLOYMENT.md
+test-api.js
+openrouter.md
+supabase/

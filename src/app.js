@@ -105,12 +105,14 @@ app.use("*", (req, res) => {
 	})
 })
 
-// Start server
-app.listen(PORT, () => {
-	console.log(`openRouter API Key: ${process.env.OPEN_API_KEY}`)
-	console.log(`🚀 HPZ Chatbot Backend running on port ${PORT}`)
-	console.log(`📊 Environment: ${process.env.NODE_ENV}`)
-	console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`)
-})
+// Start server (only in development)
+if (process.env.NODE_ENV !== "production") {
+	app.listen(PORT, () => {
+		console.log(`openRouter API Key: ${process.env.OPEN_API_KEY}`)
+		console.log(`🚀 HPZ Chatbot Backend running on port ${PORT}`)
+		console.log(`📊 Environment: ${process.env.NODE_ENV}`)
+		console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`)
+	})
+}
 
 export default app
